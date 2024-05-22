@@ -1,0 +1,65 @@
+import pandas as pd
+import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import classification_report
+
+# Load the data
+file_path = 'path_to_your_excel_file.xlsx'
+df = pd.read_excel(file_path)
+
+# Inspect the data
+print(df.head())
+print(df.info())
+
+# Basic Data Cleaning
+df.dropna(subset=['ticket_description'], inplace=True)
+df['ticket_description'] = df['ticket_description'].str.lower()
+
+# Text Preprocessing
+import nltk
+from nltk.corpus import stopwords
+from nltk.stem import WordNetLemmatizer
+
+nltk.download('stopwords')
+nltk.download('wordnet')
+
+stop_words = set(stopwords.words('english'))
+lemmatizer = WordNetLemmatizer()
+
+def preprocess_text(text):
+    tokens = text.split()
+    tokens = [word for word in tokens if word not in stop_words]
+    tokens = [lemmatizer.lemmatize(word) for word in tokens]
+    return ' '.join(tokens)
+
+df['cleaned_description'] = df['ticket_description'].apply(preprocess_text)
+
+# Vectorization
+vectorizer = TfidfVectorizer()
+X = vectorizer.fit_transform(df['cleaned_description'])
+
+# Encode Labels
+from sklearn.preprocessing import LabelEncoder
+label_encoder = LabelEncoder()
+y = label_encoder.fit_transform(df['assigned_to'])  # Change this to your target column
+
+# Split the Data
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Model Training
+model = LogisticRegression()
+model.fit(X_train, y_train)
+
+# Model Evaluation
+y_pred = model.predict(X_test)
+print(classification_report(y_test, y_pred, target_names=label_encoder.classes_))
+
+# Predict and Print Categories for Each Ticket
+df['predicted_assigned_to'] = label_encoder.inverse_transform(model.predict(X))
+for index, row in df.iterrows():
+    print(f"Ticket No: {row['ticket_no']}")
+    print(f"Description: {row['ticket_description']}")
+    print(f"Predicted Category: {row['predicted_assigned_to']}")
+    print("-" * 40)
